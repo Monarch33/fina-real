@@ -1,0 +1,65 @@
+{
+  "modules": [
+    {
+      "id": 1,
+      "title": "Options Fundamentals",
+      "subtitle": "Derivatives Building Blocks",
+      "icon": "◈",
+      "difficulty": "Foundation",
+      "category": "derivatives",
+      "lessons": [
+        {
+          "id": 1,
+          "title": "Introduction to Options",
+          "duration": "25 min",
+          "content": [
+            { "type": "h1", "text": "Definition of an Option Contract" },
+            { "type": "p", "text": "An option is a derivative security that grants its holder the right, but not the obligation, to buy or sell an underlying asset at a predetermined price on or before a specified date." },
+            { "type": "def", "term": "Strike Price (K)", "definition": "The fixed price at which the underlying asset may be bought or sold upon exercise." },
+            { "type": "def", "term": "Premium (V)", "definition": "The market price of the option contract, paid by buyer to seller at inception." },
+            { "type": "math", "label": "Call Option Payoff", "formula": "Payoff = max(Sₜ − K, 0)" },
+            { "type": "math", "label": "Put Option Payoff", "formula": "Payoff = max(K − Sₜ, 0)" }
+          ],
+          "quiz": [
+            { "q": "A European option can be exercised:", "opts": ["Any time before T", "Only at expiration T", "Only on weekdays", "Twice per month"], "correct": 1 },
+            { "q": "If K = 100 and Sₜ = 95, a call option payoff equals:", "opts": ["5", "95", "0", "−5"], "correct": 2 }
+          ]
+        },
+        {
+          "id": 2,
+          "title": "Call Option Analysis",
+          "duration": "30 min",
+          "content": [
+            { "type": "h1", "text": "Call Option Mechanics" },
+            { "type": "p", "text": "A call option conveys the right to purchase the underlying asset at strike K." },
+            { "type": "math", "label": "Profit Function", "formula": "Π = max(Sₜ − K, 0) − C₀" },
+            { "type": "def", "term": "In-the-Money (ITM)", "definition": "S > K. Positive intrinsic value." },
+            { "type": "def", "term": "At-the-Money (ATM)", "definition": "S ≈ K. Zero intrinsic value." },
+            { "type": "def", "term": "Out-of-the-Money (OTM)", "definition": "S < K. Zero intrinsic value." }
+          ],
+          "quiz": [
+            { "q": "A call is ITM when:", "opts": ["S < K", "S > K", "S = K", "C > K"], "correct": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "The Greeks",
+      "subtitle": "Δ, Γ, Θ, V, ρ Sensitivities",
+      "icon": "∂",
+      "difficulty": "Intermediate",
+      "category": "derivatives",
+      "lessons": []
+    },
+    {
+      "id": 3,
+      "title": "Black-Scholes-Merton",
+      "subtitle": "Nobel Prize Framework",
+      "icon": "∫",
+      "difficulty": "Advanced",
+      "category": "derivatives",
+      "lessons": []
+    }
+  ]
+}
