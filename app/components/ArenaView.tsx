@@ -4,96 +4,57 @@ import React, { useState, useRef, useEffect, memo } from 'react';
 import { Mic, Square, Brain, Zap, Target, Play, RefreshCw, BarChart3 } from 'lucide-react';
 import { InterviewMode, FILLER_WORDS } from '../data/arena';
 
-interface Message { role: 'user' | 'assistant'; content: string; }
-
-// BANQUE DE QUESTIONS D'OUVERTURE - Aléatoire à chaque session
-const OPENING_QUESTIONS: Record<string, string[]> = {
+const FIRST_QUESTIONS: Record<string, string[]> = {
   technical: [
-    "Let's start with derivatives. Can you explain what delta means and how you'd use it to hedge?",
-    "Walk me through how you'd price a European call option. What model would you use?",
-    "Explain the concept of implied volatility. How is it different from historical volatility?",
-    "What are the Greeks? Which one is most important for a market maker and why?",
-    "How does put-call parity work? Can you derive it?",
-    "Explain what gamma is and why it matters for options traders.",
-    "What happens to an option's value as it approaches expiration?",
-    "How would you construct a delta-neutral portfolio?",
-    "Explain the Black-Scholes model. What are its key assumptions?",
-    "What is vega and how does it affect option pricing?",
-    "Walk me through the mechanics of a variance swap.",
-    "How do you calculate the fair value of a futures contract?",
-    "Explain the difference between American and European options.",
-    "What is theta decay and how does it behave as expiration approaches?",
-    "How would you arbitrage a mispricing between calls and puts?"
+    "Let's start. What is delta in options and how do traders use it?",
+    "Explain implied volatility to me.",
+    "How does put-call parity work?",
+    "Walk me through Black-Scholes assumptions.",
+    "What is gamma and why does it matter?"
   ],
   behavioral: [
-    "Tell me about yourself and what draws you to finance.",
-    "Describe a time when you had to make a decision with incomplete information.",
-    "Tell me about a project you led. What was the outcome?",
-    "Describe a situation where you failed. What did you learn?",
-    "Why do you want to work in trading specifically?",
-    "Tell me about a time you disagreed with a teammate. How did you handle it?",
-    "What's the most challenging problem you've solved recently?",
-    "Describe a time when you had to work under significant pressure.",
-    "Tell me about a time you had to persuade someone to see your point of view.",
-    "What's a recent market event that caught your attention? What's your take on it?",
-    "Describe a situation where you had to learn something quickly.",
-    "Tell me about a time you received critical feedback. How did you respond?",
-    "Why should we hire you over other candidates?",
-    "What's your biggest weakness and how are you working on it?",
-    "Where do you see yourself in five years?"
+    "Tell me about yourself.",
+    "Why do you want to work in finance?",
+    "What's your biggest strength?",
+    "Describe your ideal work environment.",
+    "What motivates you?"
   ],
   stress: [
-    "Quick - what's 17 times 23?",
-    "I'll flip a coin. Heads you win $150, tails you lose $100. Do you play?",
+    "What's 17 times 23?",
     "What's 15% of 840?",
-    "Make me a market on the number of people in this building right now.",
+    "I flip a coin - heads you win $150, tails lose $100. Play?",
     "What's the square root of 289?",
-    "I have a die. What's a fair price for a game that pays the face value?",
-    "What's 144 divided by 12?",
-    "Two cards from a deck - probability both are aces?",
-    "What's 8 times 7 times 6?",
-    "Make me a market on how many windows are in Manhattan.",
-    "You roll two dice. What's the probability the sum is 7?",
-    "What's 25 squared?",
-    "If I flip a coin until I get heads, expected number of flips?",
-    "What's 19 times 21?",
-    "Make me a market on the temperature outside right now."
+    "Two dice - probability sum is 7?"
   ],
   'case-study': [
-    "A stock is at $100. You think it'll move 20% but aren't sure which direction. How do you trade this?",
-    "Walk me through how you'd analyze whether to acquire a competitor.",
-    "A client wants to hedge their currency exposure. What would you recommend?",
-    "You notice implied vol is higher than you think realized vol will be. How do you trade it?",
-    "How would you value a company that has negative earnings but strong growth?",
-    "A stock dropped 30% on earnings. How do you decide if it's a buy?",
-    "You're given $10M to deploy in equities. Walk me through your process.",
-    "How would you structure a trade if you're bullish on a stock but want to limit downside?",
-    "A company is considering an IPO. How would you advise them on pricing?",
-    "You think interest rates will rise. How do you position a portfolio?",
-    "Walk me through a pairs trade. When would you use this strategy?",
-    "How would you evaluate a merger arbitrage opportunity?",
-    "A client has concentrated stock position. What are their options?",
-    "You see unusual options activity in a stock. How do you analyze it?",
-    "How would you construct a market-neutral portfolio?"
+    "Stock at $100, you expect 20% move but unsure direction. How do you trade?",
+    "How would you value a high-growth company with negative earnings?",
+    "Implied vol looks too high. How do you trade it?",
+    "Walk me through a DCF valuation.",
+    "When would you use a pairs trade?"
   ]
 };
 
 export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
   const [phase, setPhase] = useState<'select'|'interview'|'results'>('select');
   const [mode, setMode] = useState<InterviewMode|null>(null);
-  const [currentAI, setCurrentAI] = useState('');
+  const [currentQuestion, setCurrentQuestion] = useState('');
+  const [questionsAsked, setQuestionsAsked] = useState<string[]>([]);
+  const [questionNumber, setQuestionNumber] = useState(0);
+  const [displayText, setDisplayText] = useState('');
+  
   const [orbState, setOrbState] = useState('idle');
   const [audioLevel, setAudioLevel] = useState(0);
   const [transcript, setTranscript] = useState('');
   const [interim, setInterim] = useState('');
   const [micError, setMicError] = useState<string|null>(null);
+  
   const [totalWords, setTotalWords] = useState(0);
   const [totalFillers, setTotalFillers] = useState(0);
   const [scores, setScores] = useState<number[]>([]);
   const [startTime, setStartTime] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   
-  const conversationRef = useRef<Message[]>([]);
   const recRef = useRef<any>(null);
   const audioCtxRef = useRef<AudioContext|null>(null);
   const streamRef = useRef<MediaStream|null>(null);
@@ -131,7 +92,6 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
     };
     
     recRef.current = r;
-    return () => { try { r.stop(); } catch {} };
   }, []);
 
   const countFillers = (t: string) => {
@@ -165,48 +125,47 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
     if (animRef.current) cancelAnimationFrame(animRef.current);
     if (audioCtxRef.current) audioCtxRef.current.close();
     if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-    audioCtxRef.current = null; 
-    streamRef.current = null; 
-    setAudioLevel(0);
+    audioCtxRef.current = null; streamRef.current = null; setAudioLevel(0);
   };
 
-  const speak = async (text: string) => {
-    setOrbState('speaking');
-    try {
-      const res = await fetch('/api/voice', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ text }) 
-      });
-      if (res.ok) {
-        const audio = new Audio(URL.createObjectURL(await res.blob()));
-        audio.onended = () => setOrbState('idle');
-        await audio.play();
-        return;
+  const speak = async (text: string): Promise<void> => {
+    return new Promise(async (resolve) => {
+      setOrbState('speaking');
+      try {
+        const res = await fetch('/api/voice', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ text }) 
+        });
+        if (res.ok) {
+          const audio = new Audio(URL.createObjectURL(await res.blob()));
+          audio.onended = () => { setOrbState('idle'); resolve(); };
+          await audio.play();
+          return;
+        }
+      } catch {}
+      if ('speechSynthesis' in window) {
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 0.95;
+        u.onend = () => { setOrbState('idle'); resolve(); };
+        speechSynthesis.speak(u);
+      } else { 
+        setOrbState('idle'); 
+        resolve(); 
       }
-    } catch {}
-    if ('speechSynthesis' in window) {
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 0.95;
-      u.onend = () => setOrbState('idle');
-      speechSynthesis.speak(u);
-    } else setOrbState('idle');
-  };
-
-  // Sélectionne une question aléatoire
-  const getRandomQuestion = (m: InterviewMode): string => {
-    const questions = OPENING_QUESTIONS[m];
-    return questions[Math.floor(Math.random() * questions.length)];
+    });
   };
 
   const startInterview = () => {
     if (!mode) return;
     
-    // Question aléatoire à chaque session !
-    const firstQ = getRandomQuestion(mode);
+    const firstQs = FIRST_QUESTIONS[mode];
+    const firstQ = firstQs[Math.floor(Math.random() * firstQs.length)];
     
-    conversationRef.current = [{ role: 'assistant', content: firstQ }];
-    setCurrentAI(firstQ);
+    setCurrentQuestion(firstQ);
+    setQuestionsAsked([firstQ]);
+    setQuestionNumber(1);
+    setDisplayText(firstQ);
     setPhase('interview');
     setStartTime(Date.now());
     setTotalWords(0);
@@ -217,9 +176,7 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
 
   const startRec = () => {
     if (!recRef.current || orbState !== 'idle') return;
-    setTranscript(''); 
-    setInterim(''); 
-    setMicError(null);
+    setTranscript(''); setInterim(''); setMicError(null);
     try { 
       recRef.current.start(); 
       setOrbState('listening'); 
@@ -236,10 +193,7 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
     stopAudio();
     
     const userText = (transcript + interim).trim();
-    if (userText.length < 3) { 
-      setOrbState('idle'); 
-      return; 
-    }
+    if (userText.length < 3) { setOrbState('idle'); return; }
     
     setOrbState('processing');
     
@@ -247,57 +201,54 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
     setTotalWords(p => p + words);
     setTotalFillers(p => p + countFillers(userText));
     
-    conversationRef.current = [
-      ...conversationRef.current, 
-      { role: 'user', content: userText }
-    ];
-    
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: conversationRef.current,
-          mode
+          userAnswer: userText,
+          questionAsked: currentQuestion,
+          questionsAlreadyAsked: questionsAsked,
+          mode,
+          questionNumber
         })
       });
       
       const data = await res.json();
       
-      if (data.success && data.reply) {
-        conversationRef.current = [
-          ...conversationRef.current, 
-          { role: 'assistant', content: data.reply }
-        ];
-        
+      if (data.success) {
         setScores(p => [...p, data.score || 60]);
-        setCurrentAI(data.reply);
         
-        if (data.isEnding || conversationRef.current.length >= 14) {
-          speak(data.reply);
-          setTimeout(() => setPhase('results'), 4000);
+        if (data.isEnding) {
+          const endText = `${data.feedback} ${data.nextQuestion}`;
+          setDisplayText(endText);
+          await speak(endText);
+          setTimeout(() => setPhase('results'), 1000);
         } else {
-          speak(data.reply);
+          // Afficher feedback puis question
+          const fullResponse = `${data.feedback} ${data.nextQuestion}`;
+          setDisplayText(fullResponse);
+          setCurrentQuestion(data.nextQuestion);
+          setQuestionsAsked(prev => [...prev, data.nextQuestion]);
+          setQuestionNumber(prev => prev + 1);
+          await speak(fullResponse);
         }
       } else {
-        throw new Error('Bad response');
+        throw new Error('API failed');
       }
     } catch (err) {
-      const fallback = "Interesting. Tell me more about your approach there.";
-      conversationRef.current = [
-        ...conversationRef.current, 
-        { role: 'assistant', content: fallback }
-      ];
-      setCurrentAI(fallback);
-      speak(fallback);
+      setDisplayText("Good point. Let's move on - tell me about a challenge you faced.");
+      setOrbState('idle');
     }
   };
 
   const restart = () => { 
     setPhase('select'); 
     setMode(null); 
-    conversationRef.current = [];
-    setCurrentAI(''); 
+    setQuestionsAsked([]);
+    setQuestionNumber(0);
+    setCurrentQuestion('');
+    setDisplayText('');
     setOrbState('idle'); 
   };
 
@@ -316,34 +267,22 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
     return (
       <div className="relative flex items-center justify-center" style={{ width: 140, height: 140 }}>
         {[1,2,3].map(r => (
-          <div key={r} className="absolute rounded-full" style={{ 
-            width: 35+r*25, height: 35+r*25, 
-            border: `1px solid ${c.g}`, 
-            opacity: orbState !== 'idle' ? 0.4/r : 0.1/r 
-          }} />
+          <div key={r} className="absolute rounded-full" style={{ width: 35+r*25, height: 35+r*25, border: `1px solid ${c.g}`, opacity: orbState !== 'idle' ? 0.4/r : 0.1/r }} />
         ))}
         {orbState === 'listening' && (
           <div className="absolute flex gap-0.5">
-            {[...Array(5)].map((_,i) => (
-              <div key={i} className="w-1 rounded bg-red-500" style={{ height: 6 + audioLevel*25 + Math.random()*8 }} />
-            ))}
+            {[...Array(5)].map((_,i) => <div key={i} className="w-1 rounded bg-red-500" style={{ height: 6 + audioLevel*25 + Math.random()*8 }} />)}
           </div>
         )}
         {orbState === 'speaking' && (
           <div className="absolute flex gap-0.5">
-            {[...Array(5)].map((_,i) => (
-              <div key={i} className="w-1 rounded bg-blue-500" style={{ height: 8 + Math.sin(Date.now()/150+i)*12 }} />
-            ))}
+            {[...Array(5)].map((_,i) => <div key={i} className="w-1 rounded bg-blue-500" style={{ height: 8 + Math.sin(Date.now()/150+i)*12 }} />)}
           </div>
         )}
         {orbState === 'processing' && (
           <div className="absolute w-10 h-10 rounded-full border-2 border-transparent border-t-yellow-500 animate-spin" />
         )}
-        <div className="rounded-full" style={{ 
-          width: 50, height: 50, 
-          background: `radial-gradient(circle at 30% 30%, ${c.m}, rgba(0,0,0,0.9))`, 
-          boxShadow: `0 0 25px ${c.g}` 
-        }} />
+        <div className="rounded-full" style={{ width: 50, height: 50, background: `radial-gradient(circle at 30% 30%, ${c.m}, rgba(0,0,0,0.9))`, boxShadow: `0 0 25px ${c.g}` }} />
       </div>
     );
   };
@@ -354,7 +293,7 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full" style={{ background: phase === 'interview' ? '#22c55e' : '#444' }} />
           <span className="text-xs font-mono text-gray-500">
-            {phase === 'interview' ? `${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}` : phase.toUpperCase()}
+            {phase === 'interview' ? `Q${questionNumber} • ${Math.floor(elapsed/60)}:${String(elapsed%60).padStart(2,'0')}` : phase.toUpperCase()}
           </span>
         </div>
         <button onClick={onExit} className="text-xs px-3 py-1.5 rounded-full border border-white/10 text-gray-500">Exit</button>
@@ -363,7 +302,7 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
       {phase === 'select' && (
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="max-w-md mx-auto">
-            <h2 className="text-xl font-light text-white text-center mb-6">Choose Interview Type</h2>
+            <h2 className="text-xl font-light text-white text-center mb-6">Interview Mode</h2>
             <div className="grid grid-cols-2 gap-3 mb-5">
               {[
                 { id: 'technical', name: 'Technical', icon: <Brain size={18}/>, color: '#3b82f6' },
@@ -371,15 +310,7 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
                 { id: 'stress', name: 'Stress', icon: <Zap size={18}/>, color: '#ef4444' },
                 { id: 'case-study', name: 'Case', icon: <BarChart3 size={18}/>, color: '#a855f7' },
               ].map(m => (
-                <button 
-                  key={m.id} 
-                  onClick={() => setMode(m.id as InterviewMode)} 
-                  className="p-4 rounded-xl text-left" 
-                  style={{ 
-                    background: mode === m.id ? `${m.color}20` : 'rgba(255,255,255,0.02)', 
-                    border: mode === m.id ? `2px solid ${m.color}` : '1px solid rgba(255,255,255,0.08)' 
-                  }}
-                >
+                <button key={m.id} onClick={() => setMode(m.id as InterviewMode)} className="p-4 rounded-xl text-left" style={{ background: mode === m.id ? `${m.color}20` : 'rgba(255,255,255,0.02)', border: mode === m.id ? `2px solid ${m.color}` : '1px solid rgba(255,255,255,0.08)' }}>
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded flex items-center justify-center" style={{ background: `${m.color}30`, color: m.color }}>{m.icon}</div>
                     <span style={{ color: mode === m.id ? m.color : '#aaa' }}>{m.name}</span>
@@ -387,11 +318,7 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
                 </button>
               ))}
             </div>
-            <button 
-              onClick={startInterview} 
-              disabled={!mode} 
-              className="w-full py-3 rounded-xl font-medium flex items-center justify-center gap-2 bg-white text-black disabled:opacity-40"
-            >
+            <button onClick={startInterview} disabled={!mode} className="w-full py-3 rounded-xl font-medium flex items-center justify-center gap-2 bg-white text-black disabled:opacity-40">
               <Play size={16}/> Start
             </button>
           </div>
@@ -423,14 +350,12 @@ export const ArenaView = memo(({ onExit }: { onExit: () => void }) => {
           <div className="flex-1 flex flex-col items-center justify-center px-6 relative">
             <div className="absolute top-6 max-w-lg text-center px-4">
               <p className="text-[10px] font-mono text-gray-600 mb-2">{mode?.toUpperCase()}</p>
-              <p className="text-base font-light text-white leading-relaxed">{currentAI}</p>
+              <p className="text-base font-light text-white leading-relaxed">{displayText}</p>
             </div>
 
             <Orb />
 
-            {micError && (
-              <div className="absolute bottom-32 px-3 py-1.5 rounded bg-red-500/10 text-red-400 text-xs">{micError}</div>
-            )}
+            {micError && <div className="absolute bottom-32 px-3 py-1.5 rounded bg-red-500/10 text-red-400 text-xs">{micError}</div>}
 
             {(transcript || interim) && orbState === 'listening' && (
               <div className="absolute bottom-28 max-w-sm p-3 rounded-xl bg-white/5 border border-white/10 text-center">
