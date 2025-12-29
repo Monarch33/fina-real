@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           model: 'tts-1',
           input: text,
-          voice: 'onyx', // Professional male voice
+          voice: 'nova', // Professional male voice
           speed: 1.0,
         }),
       });
