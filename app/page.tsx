@@ -1416,7 +1416,7 @@ const FinaApp = () => {
         {['Academy', 'Arena', 'Training', 'Pricing'].map(item => (
           <button key={item} onClick={() => {
             if (item === 'Academy') { setView('academy'); setSelectedModule(null); }
-            else if (item === 'Arena') { isAuth ? setView('arena') : setShowAuth(true); }
+            else if (item === 'Arena') { setView('arena'); }
             else if (item === 'Training') { setView('training'); }
             else { setShowPricing(true); }
           }} className="text-sm tracking-wide transition-colors duration-300 hover:text-white" style={{ color: view === item.toLowerCase() ? '#fff' : 'rgba(255,255,255,0.5)' }}>
@@ -1513,52 +1513,10 @@ const FinaApp = () => {
       <div className="min-h-screen flex flex-col px-8 py-24">
         <button onClick={() => setStep(s => Math.max(0, s - 1))} className="flex items-center gap-2 text-sm mb-16 hover:text-white" style={{ color: 'rgba(255,255,255,0.4)' }}><ChevronLeft size={16} /> Back</button>
         {step === 1 && (<><div className="text-center mb-16"><p className="text-xs font-mono tracking-[0.3em] mb-4" style={{ color: 'rgba(136,136,136,0.5)' }}>STEP 01 / 02</p><h2 className="text-4xl font-extralight" style={{ color: 'rgba(255,255,255,0.95)' }}>Select Your Track</h2></div><div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">{careers.map(c => <div key={c.id} onClick={() => setCareer(c.id)} className={`p-8 rounded-2xl cursor-pointer transition-all ${career === c.id ? 'scale-[1.02]' : ''}`} style={{ border: career === c.id ? '1px solid rgba(255,255,255,0.3)' : '1px solid rgba(255,255,255,0.06)', background: career === c.id ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)' }}><span className="text-3xl block mb-6">{c.icon}</span><h3 className="text-lg font-light mb-1" style={{ color: 'rgba(255,255,255,0.9)' }}>{c.title}</h3><p className="text-xs" style={{ color: 'rgba(136,136,136,0.5)' }}>{c.sub}</p></div>)}</div><div className="flex justify-center"><button onClick={() => setStep(2)} disabled={!career} className="px-10 py-4 rounded-full text-sm font-medium transition-all hover:scale-[1.02] disabled:opacity-30" style={{ background: 'rgba(255,255,255,0.95)', color: '#000' }}>Continue</button></div></>)}
-        {step === 2 && (<><div className="text-center mb-16"><p className="text-xs font-mono tracking-[0.3em] mb-4" style={{ color: 'rgba(136,136,136,0.5)' }}>STEP 02 / 02</p><h2 className="text-4xl font-extralight" style={{ color: 'rgba(255,255,255,0.95)' }}>Experience Level</h2></div><div className="max-w-2xl mx-auto grid grid-cols-4 gap-4 mb-16">{levels.map(l => <div key={l.id} onClick={() => setSeniority(l.id)} className="p-5 rounded-xl cursor-pointer text-center transition-all" style={{ border: seniority === l.id ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.06)', background: seniority === l.id ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)' }}><span className="text-sm" style={{ color: seniority === l.id ? '#fff' : 'rgba(255,255,255,0.6)' }}>{l.title}</span></div>)}</div><div className="flex justify-center"><button onClick={() => isAuth ? setView('arena') : setShowAuth(true)} disabled={!seniority} className="px-10 py-4 rounded-full text-sm font-medium transition-all hover:scale-[1.02] disabled:opacity-30 flex items-center gap-2" style={{ background: 'rgba(255,255,255,0.95)', color: '#000' }}>Enter Arena <Zap size={16} /></button></div></>)}
+        {step === 2 && (<><div className="text-center mb-16"><p className="text-xs font-mono tracking-[0.3em] mb-4" style={{ color: 'rgba(136,136,136,0.5)' }}>STEP 02 / 02</p><h2 className="text-4xl font-extralight" style={{ color: 'rgba(255,255,255,0.95)' }}>Experience Level</h2></div><div className="max-w-2xl mx-auto grid grid-cols-4 gap-4 mb-16">{levels.map(l => <div key={l.id} onClick={() => setSeniority(l.id)} className="p-5 rounded-xl cursor-pointer text-center transition-all" style={{ border: seniority === l.id ? '1px solid rgba(255,255,255,0.4)' : '1px solid rgba(255,255,255,0.06)', background: seniority === l.id ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)' }}><span className="text-sm" style={{ color: seniority === l.id ? '#fff' : 'rgba(255,255,255,0.6)' }}>{l.title}</span></div>)}</div><div className="flex justify-center"><button onClick={() => setView('arena')} disabled={!seniority} className="px-10 py-4 rounded-full text-sm font-medium transition-all hover:scale-[1.02] disabled:opacity-30 flex items-center gap-2" style={{ background: 'rgba(255,255,255,0.95)', color: '#000' }}>Enter Arena <Zap size={16} /></button></div></>)}
       </div>
     );
   };
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // ARENA VIEW
-  // ═══════════════════════════════════════════════════════════════════════
-
-  const ArenaView = () => (
-    <div className="min-h-screen flex flex-col">
-      <div className="px-8 py-5 flex justify-between items-center" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-        <div className="flex items-center gap-4"><div className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'rgba(34,197,94,0.8)' }} /><span className="text-xs font-mono tracking-widest" style={{ color: 'rgba(136,136,136,0.5)' }}>LIVE SESSION</span><span className="text-xs font-mono px-2 py-1 rounded-full" style={{ background: 'rgba(255,255,255,0.03)', color: 'rgba(136,136,136,0.4)' }}>Q{qCount + 1}</span></div>
-        <button onClick={() => setView('landing')} className="text-xs px-4 py-2 rounded-full hover:bg-white/5" style={{ border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}>Exit</button>
-      </div>
-      <div className="flex-1 flex">
-        <div className="w-52 p-8 flex flex-col gap-10" style={{ borderRight: '1px solid rgba(255,255,255,0.04)' }}>
-          <Metric label="Stress Level" value={metrics.stress} color={metrics.stress > 70 ? 'rgba(239,68,68,0.8)' : 'rgba(34,197,94,0.8)'} />
-          <Metric label="Speaking Pace" value={metrics.pace} color="rgba(255,255,255,0.8)" />
-          <Metric label="Precision" value={metrics.precision} color={metrics.precision > 75 ? 'rgba(34,197,94,0.8)' : 'rgba(255,255,255,0.8)'} />
-          {!hasSpoken && <div className="p-4 rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.02)' }}><p className="text-xs" style={{ color: 'rgba(136,136,136,0.5)' }}>Metrics activate after you speak</p></div>}
-        </div>
-        <div className="flex-1 flex flex-col items-center justify-center px-8 relative">
-          <div className="absolute inset-0 pointer-events-none transition-all duration-700" style={{ background: orbMood === 'aggressive' ? 'radial-gradient(ellipse at center, rgba(239,68,68,0.04) 0%, transparent 60%)' : 'radial-gradient(ellipse at center, rgba(255,255,255,0.01) 0%, transparent 60%)' }} />
-          <div className="absolute top-12 max-w-2xl text-center">
-            <p className="text-xs font-mono tracking-widest mb-4" style={{ color: orbMood === 'aggressive' ? 'rgba(239,68,68,0.6)' : 'rgba(136,136,136,0.4)' }}>{orbMood === 'aggressive' ? '⚠ CHALLENGE' : 'INTERVIEWER'}</p>
-            <p className="text-xl font-light leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)' }}>{isTyping ? displayedResponse : question}{isTyping && <span className="animate-pulse">▋</span>}</p>
-          </div>
-          <Orb mood={orbMood} isRecording={isRecording} isSpeaking={isSpeaking} />
-          {transcript && <div className="absolute bottom-40 max-w-xl text-center p-5 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}><p className="text-xs font-mono mb-2" style={{ color: 'rgba(136,136,136,0.4)' }}>YOUR RESPONSE</p><p className="text-sm" style={{ color: 'rgba(255,255,255,0.8)' }}>{transcript}</p></div>}
-          <div className="absolute bottom-12 flex flex-col items-center gap-4">
-            {!isRecording ? (
-              <button onClick={startRecording} disabled={isSpeaking || isTyping} className="w-20 h-20 rounded-full flex items-center justify-center transition-all disabled:opacity-40 hover:scale-105" style={{ background: 'rgba(255,255,255,0.05)', border: '2px solid rgba(255,255,255,0.2)' }}>
-                <Mic size={24} style={{ color: 'rgba(255,255,255,0.6)' }} />
-              </button>
-            ) : (
-              <button onClick={stopRecording} className="w-20 h-20 rounded-full flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.15)', border: '3px solid rgba(239,68,68,0.8)', animation: 'pulse-border 1.5s ease-in-out infinite' }}>
-                <Square size={20} fill="rgba(239,68,68,0.9)" style={{ color: 'rgba(239,68,68,0.9)' }} />
-              </button>
-            )}
-            <span className="text-xs font-mono tracking-widest" style={{ color: isRecording ? 'rgba(239,68,68,0.8)' : 'rgba(136,136,136,0.4)' }}>{isSpeaking || isTyping ? 'AI RESPONDING...' : isRecording ? 'TAP TO SEND' : 'TAP TO SPEAK'}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   // ═══════════════════════════════════════════════════════════════════════
   // TRAINING VIEW
@@ -1878,7 +1836,7 @@ const FinaApp = () => {
       
       {view === 'landing' && step === 0 && <LandingView />}
       {view === 'landing' && step > 0 && <OnboardingView />}
-      {view === 'arena' && <ArenaView />}
+      {view === 'arena' && <ArenaView onExit={() => setView('home')} />}
       {view === 'academy' && <AcademyView />}
       {view === 'training' && <TrainingView />}
       
