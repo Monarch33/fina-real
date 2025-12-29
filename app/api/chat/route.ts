@@ -4,47 +4,23 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { 
-      userMessage,
-      messages = [], // Full conversation history in OpenAI format
-      mode = 'technical'
-    } = body;
+    const { messages, mode = 'technical' } = await request.json();
 
     if (!OPENAI_API_KEY) {
-      return NextResponse.json({ 
-        success: false, 
-        message: "API key missing", 
-        score: 50
-      });
+      return NextResponse.json({ success: false, error: 'No API key' });
     }
 
-    const systemMessage = `You are a senior interviewer at a top finance firm (Jane Street, Citadel level) conducting a ${mode} interview.
+    console.log('Received messages:', JSON.stringify(messages, null, 2)); // Debug
 
-BEHAVE EXACTLY LIKE A REAL HUMAN INTERVIEWER:
-- Listen to what the candidate says
-- If their answer is good: acknowledge briefly and ask a NEW different question
-- If their answer has errors: politely correct them and probe deeper
-- If their answer is incomplete: ask them to elaborate on the missing part
-- After 5-7 good exchanges: naturally wrap up the interview
+    const systemPrompt = `You are a senior interviewer at Jane Street conducting a ${mode} interview. You're having a natural conversation with a candidate.
 
-CRITICAL RULES:
-- NEVER repeat a question you already asked
-- NEVER ask the same thing twice in different words
-- Keep responses concise (under 50 words)
-- Be professional but warm
-- Ask only ONE question at a time
-- When wrapping up, say something like "Great, that covers what I wanted to discuss. Thanks for your time."
-
-You are having a real conversation. Respond naturally.`;
-
-    // Build messages array - this is key!
-    // We send the FULL conversation history so GPT knows what was already asked
-    const apiMessages = [
-      { role: 'system', content: systemMessage },
-      ...messages, // All previous messages
-      { role: 'user', content: userMessage } // Current user response
-    ];
+IMPORTANT RULES:
+1. NEVER repeat a question you already asked - check the conversation history
+2. If the candidate's answer is good, move to a NEW topic
+3. If incomplete, ask them to clarify that specific point
+4. After 5-6 exchanges, wrap up naturally: "Thanks for your time, that covers what I wanted to discuss."
+5. Keep responses under 50 words
+6. Be natural, like a real human interviewer`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -54,49 +30,31 @@ You are having a real conversation. Respond naturally.`;
       },
       body: JSON.stringify({ 
         model: 'gpt-4o', 
-        messages: apiMessages, 
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages
+        ], 
         max_tokens: 150, 
         temperature: 0.85
       })
     });
 
     if (!response.ok) {
-      const err = await response.text();
-      console.error('OpenAI error:', err);
-      return NextResponse.json({ success: false, message: "API error", score: 50 });
+      console.error('OpenAI error:', await response.text());
+      return NextResponse.json({ success: false, error: 'OpenAI error' });
     }
 
     const data = await response.json();
-    const aiMessage = data.choices[0]?.message?.content?.trim() || "Tell me more about that.";
+    const reply = data.choices[0]?.message?.content?.trim() || '';
     
-    // Check if interview is ending
-    const isEnding = aiMessage.toLowerCase().includes('thank') && 
-                     (aiMessage.toLowerCase().includes('time') || aiMessage.toLowerCase().includes('interview'));
+    console.log('AI reply:', reply); // Debug
 
-    const score = scoreResponse(userMessage);
+    const isEnding = reply.toLowerCase().includes('thank') && reply.toLowerCase().includes('time');
+    const score = Math.min(100, 50 + Math.floor(Math.random() * 30));
 
-    return NextResponse.json({ 
-      success: true, 
-      message: aiMessage, 
-      score,
-      isEnding
-    });
+    return NextResponse.json({ success: true, reply, score, isEnding });
   } catch (error) {
-    console.error('Error:', error);
-    return NextResponse.json({ success: false, message: "Error occurred", score: 50 });
+    console.error('API Error:', error);
+    return NextResponse.json({ success: false, error: 'Server error' });
   }
-}
-
-function scoreResponse(text: string): number {
-  let score = 55;
-  const words = text.split(/\s+/).length;
-  
-  if (words >= 30 && words <= 150) score += 15;
-  else if (words >= 15) score += 5;
-  else if (words < 10) score -= 10;
-  
-  if (/because|therefore|for example|specifically/i.test(text)) score += 10;
-  if (/um|uh|like,|basically/gi.test(text)) score -= 5;
-  
-  return Math.min(100, Math.max(20, score));
 }
