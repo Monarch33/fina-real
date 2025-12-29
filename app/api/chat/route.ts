@@ -6,59 +6,61 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { 
-      message,  // What the user just said
-      conversationHistory = [],  // Full conversation so far
+      message,
+      conversationHistory = [],
       mode = 'technical', 
-      track = 'trading', 
-      difficulty = 'analyst',
-      questionNumber = 1,
-      totalQuestions = 5
+      questionNumber = 1
     } = body;
 
     if (!OPENAI_API_KEY) {
       return NextResponse.json({ 
         success: true, 
-        message: "Interesting. Tell me more about that.", 
+        message: "That's a solid point. Let's move on - tell me about a time you worked under pressure.", 
         score: 60,
-        shouldMoveOn: false
+        action: 'continue'
       });
     }
 
-    const systemPrompt = `You are a senior interviewer at a top finance firm (Jane Street/Citadel level) conducting a ${mode} interview.
+    // Build conversation context
+    const conversationContext = conversationHistory
+      .slice(-8)
+      .map((h: any) => `${h.role === 'assistant' ? 'Interviewer' : 'Candidate'}: ${h.content}`)
+      .join('\n');
 
-THE CANDIDATE JUST SAID: "${message}"
+    const systemPrompt = `You are a senior finance interviewer at Jane Street conducting a ${mode} interview.
 
-YOUR JOB:
-1. DIRECTLY RESPOND to what they said - quote their words back to them
-2. If they made a good point: "You mentioned [X], that's interesting because..." then probe deeper
-3. If they made an error: "You said [X], but actually..." then correct gently and ask them to reconsider
-4. If they were vague: "You said [X] - can you be more specific about..."
-5. If they seem confused: Explain briefly, then ask a simpler related question
-
-RULES:
-- NEVER ignore what they said
-- ALWAYS reference something specific from their answer
-- Ask ONE follow-up question maximum
-- Keep response under 50 words
-- Be conversational, not robotic
-- Sound like a real person talking
+You are having a natural conversation. The candidate just responded to your question.
 
 CONVERSATION SO FAR:
-${conversationHistory.map((h: any) => `${h.role === 'assistant' ? 'INTERVIEWER' : 'CANDIDATE'}: ${h.content}`).join('\n')}
+${conversationContext}
 
-MODE: ${mode.toUpperCase()}
-${mode === 'technical' ? '- Push for precision and numbers' : ''}
-${mode === 'behavioral' ? '- Look for specific examples and outcomes' : ''}
-${mode === 'stress' ? '- Be direct and challenge them' : ''}
+CANDIDATE'S LATEST RESPONSE:
+"${message}"
 
-After 2-3 exchanges on a topic, you can transition to a new question by saying something like "Good, let's move on. [new question]"
+YOUR TASK:
+Respond like a real interviewer would. You have 3 options:
 
-Respond naturally as if you're having a real conversation:`;
+OPTION A - FEEDBACK + FOLLOW-UP (if their answer needs clarification or was incomplete):
+Give brief feedback on what was good/missing, then ask ONE specific follow-up question.
+Example: "Good point about delta hedging. But you didn't mention gamma - how does gamma exposure affect your hedging frequency?"
 
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `The candidate said: "${message}"\n\nRespond directly to what they said:` }
-    ];
+OPTION B - ACKNOWLEDGE + NEW TOPIC (if their answer was satisfactory):
+Briefly acknowledge their answer, then move to a completely new question.
+Example: "That's a solid explanation. Let's switch gears - walk me through how you'd value a company using DCF."
+
+OPTION C - WRAP UP (if you've covered enough after ${questionNumber}+ exchanges):
+Thank them and end the interview naturally.
+Example: "Great, I think I have a good sense of your background. Thanks for your time today. Do you have any questions for me?"
+
+RULES:
+- Be natural and conversational, NOT robotic
+- NEVER repeat the same question
+- NEVER just quote their words back ("you mentioned X...")
+- Give real feedback if they made errors
+- Keep responses under 40 words
+- Act like a real human interviewer
+
+Respond now:`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -68,49 +70,54 @@ Respond naturally as if you're having a real conversation:`;
       },
       body: JSON.stringify({ 
         model: 'gpt-4o', 
-        messages, 
-        max_tokens: 150, 
-        temperature: 0.9,
-        presence_penalty: 0.8,
-        frequency_penalty: 0.7
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: 'Respond as the interviewer:' }
+        ], 
+        max_tokens: 120, 
+        temperature: 0.8,
+        presence_penalty: 0.6,
+        frequency_penalty: 0.5
       })
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error('OpenAI error:', errText);
+      console.error('OpenAI error');
       return NextResponse.json({ 
         success: true, 
-        message: `You mentioned "${message.split(' ').slice(0, 5).join(' ')}..." - can you expand on that?`, 
+        message: "Good. Now tell me - what's your biggest weakness and how do you manage it?", 
         score: 55,
-        shouldMoveOn: false
+        action: 'continue'
       });
     }
 
     const data = await response.json();
     let aiMessage = data.choices[0]?.message?.content || "";
+    aiMessage = aiMessage.replace(/^(Interviewer:|Response:)/gi, '').trim();
     
-    // Clean up the response
-    aiMessage = aiMessage.replace(/^(Interviewer:|AI:|Response:)/i, '').trim();
-    
+    // Determine action based on response content
+    let action = 'continue';
+    if (aiMessage.toLowerCase().includes('thank') && aiMessage.toLowerCase().includes('time')) {
+      action = 'end';
+    } else if (aiMessage.includes('?')) {
+      action = 'question';
+    }
+
     const score = calculateScore(message);
-    const shouldMoveOn = aiMessage.toLowerCase().includes("let's move on") || 
-                         aiMessage.toLowerCase().includes("next question") ||
-                         aiMessage.toLowerCase().includes("moving on");
 
     return NextResponse.json({ 
       success: true, 
       message: aiMessage, 
       score,
-      shouldMoveOn
+      action
     });
   } catch (error) {
     console.error('Chat API error:', error);
     return NextResponse.json({ 
       success: true, 
-      message: "That's a fair point. What led you to that conclusion?", 
+      message: "Interesting. Now, tell me about a challenging project you worked on.", 
       score: 50,
-      shouldMoveOn: false
+      action: 'continue'
     });
   }
 }
@@ -120,13 +127,13 @@ function calculateScore(response: string): number {
   const words = response.split(/\s+/).filter(w => w.length > 0);
   const wordCount = words.length;
   
-  if (wordCount >= 30 && wordCount <= 150) score += 15;
+  if (wordCount >= 30 && wordCount <= 120) score += 15;
   else if (wordCount >= 20) score += 8;
   else if (wordCount < 10) score -= 15;
   
-  if (/because|therefore|specifically|for example|first|second/i.test(response)) score += 10;
-  if (/i think|i believe|my view|i would/i.test(response)) score += 5;
-  if (/um|uh|like|basically|you know/gi.test(response)) score -= 5;
+  if (/because|therefore|specifically|for example|first|second|the reason/i.test(response)) score += 10;
+  if (/i led|i managed|i built|i created|i achieved|resulted in/i.test(response)) score += 8;
+  if (/um|uh|like,|basically|you know|i guess/gi.test(response)) score -= 5;
   
-  return Math.min(100, Math.max(0, score));
+  return Math.min(100, Math.max(20, score));
 }

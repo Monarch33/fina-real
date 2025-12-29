@@ -275,10 +275,10 @@ export const ArenaView = memo(({ onExit }: ArenaProps) => {
           setQuestionCount(prev => prev + 1);
         }
         
-        // End after ~5 questions worth of conversation (around 10-15 exchanges)
-        if (questionCount >= 5 || newHistory.length >= 12) {
-          speakText(aiMessage + " That's all the time we have. Good job.");
-          setTimeout(() => setPhase('results'), 5000);
+        // Check if AI wants to end the interview
+        if (data.action === 'end' || newHistory.length >= 14) {
+          speakText(aiMessage);
+          setTimeout(() => setPhase('results'), 4000);
         } else {
           speakText(aiMessage);
         }
