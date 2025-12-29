@@ -583,12 +583,14 @@ export const ArenaView = memo(({ onExit, userTrack = 'trading', userLevel = 'ana
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage,
-          history: newHistory.slice(-6),
+          history: newHistory,
           mode,
           track: userTrack,
           difficulty: userLevel,
           currentQuestion: question.question,
-          expectedTopics: question.expectedTopics
+          expectedTopics: question.expectedTopics,
+          questionNumber: currentQIndex + 1,
+          totalQuestions: questions.length
         })
       });
       
