@@ -8,7 +8,7 @@ import {
   EyeOff, LogOut, DollarSign, User, Star, Calculator, 
   LineChart, Play, Square, Volume2, ArrowRight, Sparkles,
   GraduationCap, BarChart3, PieChart, Brain, Cpu, Clock,
-  Trophy, Flame, Building2, Filter, ChevronDown, RefreshCw,
+  Trophy, Flame, Building2, Filter, ChevronDown, RefreshCw, Dices,
   TrendingDown, Activity, Users, Crown, Medal, Gamepad2
 } from 'lucide-react';
 import { 
@@ -18,6 +18,8 @@ import {
   logout, 
   onAuthChange 
 } from '@/lib/firebase';
+import { BRAINTEASERS_DB, BrainTeaser } from './data/brainteasers';
+import { DiceTrading, CardTrading, SequenceTest, MemoryTest } from './data/games';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FINA V-REAL ULTIMATE — REFACTORED ARCHITECTURE
@@ -27,17 +29,6 @@ import {
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION 1: TYPE DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════════════
-
-interface BrainTeaser {
-  id: number;
-  category: 'probability' | 'logic' | 'expected-value' | 'market-making' | 'statistics' | 'mental-math' | 'sequences' | 'game-theory';
-  difficulty: 'Easy' | 'Medium' | 'Hard';
-  firm: string;
-  question: string;
-  answer: string;
-  hint: string;
-  solution: string;
-}
 
 interface Firm {
   id: string;
@@ -92,66 +83,7 @@ const SYLLABUS = [
 // SECTION 3: BRAINTEASERS DATABASE (SCALABLE STRUCTURE FOR 500+)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const BRAINTEASERS_DB: BrainTeaser[] = [
-  // ─── PROBABILITY (50+ questions) ───────────────────────────────────────
-  { id: 1, category: 'probability', difficulty: 'Easy', firm: 'Jane Street', question: 'You flip a fair coin 3 times. What is the probability of getting exactly 2 heads?', answer: '3/8', hint: 'Count favorable outcomes over total outcomes', solution: 'Total outcomes = 2³ = 8. Favorable (HHT, HTH, THH) = 3. P = 3/8' },
-  { id: 2, category: 'probability', difficulty: 'Medium', firm: 'Citadel', question: 'You roll two fair dice. What is the probability that the sum is 7?', answer: '1/6', hint: 'Count all pairs that sum to 7', solution: '(1,6), (2,5), (3,4), (4,3), (5,2), (6,1) = 6 pairs. P = 6/36 = 1/6' },
-  { id: 3, category: 'probability', difficulty: 'Hard', firm: 'Two Sigma', question: 'You have 3 cards: one red on both sides, one blue on both sides, one red on one side and blue on the other. You pick a random card and see red. What is the probability the other side is also red?', answer: '2/3', hint: 'Think about which red sides you could be seeing', solution: 'You see 1 of 3 possible red sides. 2 of those 3 red sides belong to the all-red card. P = 2/3' },
-  { id: 4, category: 'probability', difficulty: 'Easy', firm: 'Goldman Sachs', question: 'What is the expected number of coin flips to get heads?', answer: '2', hint: 'Geometric distribution', solution: 'E[X] = 1/p = 1/0.5 = 2' },
-  { id: 5, category: 'probability', difficulty: 'Medium', firm: 'SIG', question: 'You flip a coin until you get 2 heads in a row. What is the expected number of flips?', answer: '6', hint: 'Set up recursive equations', solution: 'Let E = expected flips. E = 1 + 0.5(1 + E) + 0.5×0.5×0 + 0.5×0.5×E. Solving: E = 6' },
-  { id: 6, category: 'probability', difficulty: 'Hard', firm: 'Jane Street', question: 'In a room of 23 people, what is approximately the probability that two share a birthday?', answer: '~50%', hint: 'Calculate probability no one shares', solution: 'P(no match) = (365/365)(364/365)...(343/365) ≈ 0.493. P(match) ≈ 50.7%' },
-  { id: 7, category: 'probability', difficulty: 'Medium', firm: 'Optiver', question: 'You draw 2 cards from a standard deck without replacement. Probability both are aces?', answer: '1/221', hint: '(4/52) × (3/51)', solution: 'P = (4/52) × (3/51) = 12/2652 = 1/221' },
-  { id: 8, category: 'probability', difficulty: 'Hard', firm: 'DRW', question: 'Expected value of max(X,Y) where X,Y are independent uniform[0,1]?', answer: '2/3', hint: 'Integrate the CDF', solution: 'E[max] = ∫₀¹ (1 - F²(x))dx = ∫₀¹ (1-x²)dx = 2/3' },
-  { id: 9, category: 'probability', difficulty: 'Medium', firm: 'Citadel', question: 'A stick is broken at two random points. What is the probability the three pieces form a triangle?', answer: '1/4', hint: 'Triangle inequality must hold', solution: 'Each piece must be < 0.5 of total. P = 1/4' },
-  { id: 10, category: 'probability', difficulty: 'Hard', firm: 'Jane Street', question: 'You have a biased coin (P(H)=0.6). What is P(exactly 3 heads in 5 flips)?', answer: '0.3456', hint: 'Binomial distribution', solution: 'C(5,3) × 0.6³ × 0.4² = 10 × 0.216 × 0.16 = 0.3456' },
-  
-  // ─── LOGIC & PUZZLES ───────────────────────────────────────────────────
-  { id: 11, category: 'logic', difficulty: 'Easy', firm: 'Morgan Stanley', question: 'You have 8 balls, one is heavier. Using a balance scale, minimum weighings to find it?', answer: '2', hint: 'Divide into groups of 3', solution: 'Weigh 3 vs 3. If equal, weigh remaining 2. If unequal, weigh 2 from heavy side.' },
-  { id: 12, category: 'logic', difficulty: 'Medium', firm: 'Citadel', question: '100 prisoners, 100 boxes with their numbers. Each opens 50 boxes. Strategy for >30% all finding their number?', answer: 'Follow the cycle', hint: 'Start with your number, follow the chain', solution: 'Each prisoner starts with their number and follows the pointer. Probability all succeed ≈ 31%' },
-  { id: 13, category: 'logic', difficulty: 'Hard', firm: 'Jane Street', question: 'You have 12 balls, one is different weight (heavier or lighter). Find it in 3 weighings.', answer: 'Divide into 3 groups', hint: 'Use information from each weighing optimally', solution: 'Complex decision tree. Weigh 4v4, then use tilt direction to narrow down.' },
-  { id: 14, category: 'logic', difficulty: 'Easy', firm: 'Goldman Sachs', question: 'A bat and ball cost $1.10. The bat costs $1 more than the ball. How much is the ball?', answer: '$0.05', hint: 'Set up an equation', solution: 'Let ball = x. Bat = x + 1. Total: x + (x+1) = 1.10. x = 0.05' },
-  { id: 15, category: 'logic', difficulty: 'Medium', firm: 'SIG', question: 'You have 2 eggs and 100 floors. Minimum worst-case drops to find the breaking floor?', answer: '14', hint: 'Optimize first drop location', solution: 'Drop first egg at floor n where n + (n-1) + ... + 1 ≥ 100. n = 14.' },
-  { id: 16, category: 'logic', difficulty: 'Hard', firm: 'Two Sigma', question: 'Pirates split 100 gold coins. 5 pirates vote, need majority. What does the senior pirate propose?', answer: '98 for himself', hint: 'Work backwards from 2 pirates', solution: 'Senior proposes: 98,0,1,0,1. Gets 3 votes (himself + pirates 3 and 5).' },
-  { id: 17, category: 'logic', difficulty: 'Medium', firm: 'Optiver', question: 'You have 25 horses. Find the 3 fastest using 5-horse races. Minimum races needed?', answer: '7', hint: 'First race all groups, then optimize', solution: 'Race 5 groups (5 races). Race winners (1 race). Then 1 more to determine 2nd and 3rd.' },
-  { id: 18, category: 'logic', difficulty: 'Easy', firm: 'Flow Traders', question: 'How many times do clock hands overlap in 24 hours?', answer: '22', hint: 'Not 24 - they sometimes skip', solution: 'Hands overlap every 12/11 hours ≈ 65.45 min. In 24h: 22 times (not 24 due to 12:00 edge case).' },
-  
-  // ─── EXPECTED VALUE ────────────────────────────────────────────────────
-  { id: 19, category: 'expected-value', difficulty: 'Easy', firm: 'Akuna', question: 'Roll a die, win $X where X is the number shown. What would you pay to play?', answer: '$3.50', hint: 'E[X] = (1+2+3+4+5+6)/6', solution: 'E[X] = 21/6 = 3.5. Fair price is $3.50' },
-  { id: 20, category: 'expected-value', difficulty: 'Medium', firm: 'Optiver', question: 'Game: flip coin, heads = double money, tails = lose all. Start with $1. Keep flipping until you quit. Optimal strategy?', answer: 'Always quit immediately', hint: 'Calculate expected value', solution: 'E[continuing] = 0.5(2X) + 0.5(0) = X = current value. Indifferent, but risk-averse quit.' },
-  { id: 21, category: 'expected-value', difficulty: 'Hard', firm: 'Jane Street', question: 'St. Petersburg Paradox: Win $2^n where n is number of flips until first heads. Fair price?', answer: 'Infinite (theoretically)', hint: 'Sum the expected value series', solution: 'E = Σ(1/2^n × 2^n) = Σ1 = ∞. But practically, ~$20-25 due to utility.' },
-  { id: 22, category: 'expected-value', difficulty: 'Medium', firm: 'SIG', question: 'You can roll a die up to 3 times, keeping the last roll. Optimal strategy and expected value?', answer: '4.67', hint: 'Work backwards', solution: 'Roll 3: E=3.5. Roll 2: keep if ≥4, E=4.25. Roll 1: keep if ≥5, E=4.67' },
-  { id: 23, category: 'expected-value', difficulty: 'Hard', firm: 'Citadel', question: 'You draw cards from a deck until you get an Ace. Expected number of draws?', answer: '10.6', hint: 'Use linearity of expectation', solution: 'E = (52+1)/(4+1) = 53/5 = 10.6 cards on average' },
-  
-  // ─── MARKET MAKING ─────────────────────────────────────────────────────
-  { id: 24, category: 'market-making', difficulty: 'Easy', firm: 'Flow Traders', question: 'Fair value of a stock is $50. You quote 49.90/50.10. Someone buys. New fair value?', answer: '$50.05', hint: 'Bayesian update - buyer has information', solution: 'Buyer at 50.10 suggests informed. Update fair value slightly up to ~$50.05' },
-  { id: 25, category: 'market-making', difficulty: 'Medium', firm: 'Optiver', question: 'You make market on coin flip paying $1 for heads. What spread do you quote and why?', answer: '0.45/0.55', hint: 'Fair value is 0.50, add spread for risk', solution: 'Fair value = $0.50. Quote with spread to profit: 0.45 bid / 0.55 ask' },
-  { id: 26, category: 'market-making', difficulty: 'Hard', firm: 'Citadel', question: 'ETF has 3 stocks: A=$100, B=$50, C=$25. ETF holds 1 of each. A drops to $95. New ETF fair value?', answer: '$170', hint: 'Sum the components', solution: 'New NAV = $95 + $50 + $25 = $170. Quote around this.' },
-  { id: 27, category: 'market-making', difficulty: 'Medium', firm: 'IMC', question: 'You are short gamma. The stock moves up 2%. What happens to your delta and what do you do?', answer: 'Delta gets more negative, buy stock', hint: 'Short gamma = delta moves against you', solution: 'Short gamma: as stock rises, delta becomes more negative. Must buy stock to hedge.' },
-  { id: 28, category: 'market-making', difficulty: 'Hard', firm: 'Jane Street', question: 'You quoted 99/101 on 1000 shares. Someone lifts your offer, then market drops to 98/100. Estimate your P&L.', answer: '-$2000', hint: 'Sold at 101, now worth ~99', solution: 'Sold 1000 @ $101 = $101k. Position worth 1000 × $99 = $99k. P&L = -$2k' },
-  
-  // ─── MENTAL MATH ───────────────────────────────────────────────────────
-  { id: 29, category: 'mental-math', difficulty: 'Easy', firm: 'Optiver', question: '17 × 23 = ?', answer: '391', hint: '17 × 23 = 17 × 20 + 17 × 3', solution: '17 × 20 = 340, 17 × 3 = 51, total = 391' },
-  { id: 30, category: 'mental-math', difficulty: 'Medium', firm: 'Flow Traders', question: '144 ÷ 0.125 = ?', answer: '1152', hint: '0.125 = 1/8', solution: '144 ÷ (1/8) = 144 × 8 = 1152' },
-  { id: 31, category: 'mental-math', difficulty: 'Hard', firm: 'SIG', question: '√(289) × √(361) = ?', answer: '323', hint: 'Find perfect squares', solution: '√289 = 17, √361 = 19, 17 × 19 = 323' },
-  { id: 32, category: 'mental-math', difficulty: 'Easy', firm: 'Optiver', question: '7/8 as a decimal?', answer: '0.875', hint: '1/8 = 0.125', solution: '7/8 = 1 - 1/8 = 1 - 0.125 = 0.875' },
-  { id: 33, category: 'mental-math', difficulty: 'Medium', firm: 'Akuna', question: '15% of 840 = ?', answer: '126', hint: '10% + 5%', solution: '10% = 84, 5% = 42, total = 126' },
-  { id: 34, category: 'mental-math', difficulty: 'Hard', firm: 'Citadel', question: '37² = ?', answer: '1369', hint: '(40-3)² = 1600 - 240 + 9', solution: '37² = (40-3)² = 1600 - 240 + 9 = 1369' },
-  
-  // ─── STATISTICS ────────────────────────────────────────────────────────
-  { id: 35, category: 'statistics', difficulty: 'Medium', firm: 'Two Sigma', question: 'Sample mean is 100, sample std is 15, n=25. 95% CI for population mean?', answer: '94.1 to 105.9', hint: '95% CI = mean ± 1.96 × SE', solution: 'SE = 15/√25 = 3. CI = 100 ± 1.96×3 = 100 ± 5.88' },
-  { id: 36, category: 'statistics', difficulty: 'Hard', firm: 'Citadel', question: 'X ~ N(0,1). What is E[X | X > 0]?', answer: '√(2/π) ≈ 0.798', hint: 'Truncated normal distribution', solution: 'E[X|X>0] = φ(0)/(1-Φ(0)) = (1/√(2π))/(0.5) = √(2/π)' },
-  { id: 37, category: 'statistics', difficulty: 'Medium', firm: 'DE Shaw', question: 'Correlation between X and -X?', answer: '-1', hint: 'Perfect negative relationship', solution: 'Corr(X, -X) = -1 (perfect negative correlation)' },
-  { id: 38, category: 'statistics', difficulty: 'Hard', firm: 'Two Sigma', question: 'X and Y are iid N(0,1). What is E[max(X,Y)]?', answer: '1/√π ≈ 0.564', hint: 'Order statistics', solution: 'E[max] = 1/√π for two iid standard normals' },
-  
-  // ─── GAME THEORY ───────────────────────────────────────────────────────
-  { id: 39, category: 'game-theory', difficulty: 'Medium', firm: 'SIG', question: 'In poker, you have a 25% chance to win. Pot is $100, opponent bets $20. Do you call?', answer: 'Yes', hint: 'Calculate pot odds', solution: 'Need to call $20 to win $120. Break-even = 20/120 = 16.7%. You have 25% > 16.7%. Call.' },
-  { id: 40, category: 'game-theory', difficulty: 'Hard', firm: 'Jane Street', question: 'Two players bid for $100. Highest bidder wins but both pay their bids. Nash equilibrium?', answer: 'Both bid $100', hint: 'Dollar auction paradox', solution: 'War of attrition. In equilibrium, expected profit is $0. Both bid up to $100.' },
-  
-  // ─── SEQUENCES & PATTERNS ──────────────────────────────────────────────
-  { id: 41, category: 'sequences', difficulty: 'Easy', firm: 'Flow Traders', question: 'Next number: 2, 6, 12, 20, 30, ?', answer: '42', hint: 'Look at differences', solution: 'Differences: 4, 6, 8, 10, 12. Next: 30 + 12 = 42' },
-  { id: 42, category: 'sequences', difficulty: 'Medium', firm: 'Optiver', question: 'Next number: 1, 1, 2, 3, 5, 8, 13, ?', answer: '21', hint: 'Famous sequence', solution: 'Fibonacci: each number is sum of two before. 13 + 8 = 21' },
-  { id: 43, category: 'sequences', difficulty: 'Hard', firm: 'Jane Street', question: 'Next: 1, 11, 21, 1211, 111221, ?', answer: '312211', hint: 'Look and say sequence', solution: 'Describe previous: 111221 = "three 1s, two 2s, one 1" = 312211' },
-];
+// BRAINTEASERS_DB imported from ./data/brainteasers
 
 // ═══════════════════════════════════════════════════════════════════════════
 // SECTION 4: FIRMS DATABASE
@@ -1084,7 +1016,7 @@ const FinaApp = () => {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
 
   // ─── Training State ────────────────────────────────────────────────────
-  const [trainingTab, setTrainingTab] = useState<'quant-lab' | 'vault' | 'intel' | 'market-game' | 'leaderboard'>('quant-lab');
+  const [trainingTab, setTrainingTab] = useState<'quant-lab' | 'vault' | 'intel' | 'market-game' | 'dice-game' | 'card-game' | 'sequence' | 'memory' | 'leaderboard'>('quant-lab');
   
   // ─── Quant Lab State ───────────────────────────────────────────────────
   const [mathMode, setMathMode] = useState<'idle' | 'playing' | 'results'>('idle');
@@ -1645,6 +1577,10 @@ const FinaApp = () => {
             { id: 'vault', label: 'The Vault', icon: <Target size={16} /> },
             { id: 'intel', label: 'Firm Intel', icon: <Building2 size={16} /> },
             { id: 'market-game', label: 'Market Game', icon: <Gamepad2 size={16} /> },
+            { id: 'dice-game', label: 'Dice Trading', icon: <Dices size={16} /> },
+            { id: 'card-game', label: 'Card Game', icon: <Square size={16} /> },
+            { id: 'sequence', label: 'Sequences', icon: <Target size={16} /> },
+            { id: 'memory', label: 'Memory', icon: <Brain size={16} /> },
             { id: 'leaderboard', label: 'Rankings', icon: <Trophy size={16} /> },
           ].map(tab => (
             <button key={tab.id} onClick={() => setTrainingTab(tab.id as any)} className="flex items-center gap-2 px-5 py-3 rounded-xl transition-all" style={{ background: trainingTab === tab.id ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.02)', border: trainingTab === tab.id ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(255,255,255,0.06)' }}>
@@ -1833,6 +1769,18 @@ const FinaApp = () => {
 
         {/* Market Making Game */}
         {trainingTab === 'market-game' && <MarketMakingGame onExit={() => setTrainingTab('quant-lab')} />}
+
+        {/* Dice Trading Game */}
+        {trainingTab === 'dice-game' && <DiceTrading onExit={() => setTrainingTab('quant-lab')} />}
+
+        {/* Card Trading Game */}
+        {trainingTab === 'card-game' && <CardTrading onExit={() => setTrainingTab('quant-lab')} />}
+
+        {/* Sequence Test */}
+        {trainingTab === 'sequence' && <SequenceTest onExit={() => setTrainingTab('quant-lab')} />}
+
+        {/* Memory Test */}
+        {trainingTab === 'memory' && <MemoryTest onExit={() => setTrainingTab('quant-lab')} />}
 
         {/* Leaderboard */}
         {trainingTab === 'leaderboard' && <Leaderboard currentUser={user?.name} />}
