@@ -6,61 +6,45 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { 
-      message,
-      conversationHistory = [],
-      mode = 'technical', 
-      questionNumber = 1
+      userMessage,
+      messages = [], // Full conversation history in OpenAI format
+      mode = 'technical'
     } = body;
 
     if (!OPENAI_API_KEY) {
       return NextResponse.json({ 
-        success: true, 
-        message: "That's a solid point. Let's move on - tell me about a time you worked under pressure.", 
-        score: 60,
-        action: 'continue'
+        success: false, 
+        message: "API key missing", 
+        score: 50
       });
     }
 
-    // Build conversation context
-    const conversationContext = conversationHistory
-      .slice(-8)
-      .map((h: any) => `${h.role === 'assistant' ? 'Interviewer' : 'Candidate'}: ${h.content}`)
-      .join('\n');
+    const systemMessage = `You are a senior interviewer at a top finance firm (Jane Street, Citadel level) conducting a ${mode} interview.
 
-    const systemPrompt = `You are a senior finance interviewer at Jane Street conducting a ${mode} interview.
+BEHAVE EXACTLY LIKE A REAL HUMAN INTERVIEWER:
+- Listen to what the candidate says
+- If their answer is good: acknowledge briefly and ask a NEW different question
+- If their answer has errors: politely correct them and probe deeper
+- If their answer is incomplete: ask them to elaborate on the missing part
+- After 5-7 good exchanges: naturally wrap up the interview
 
-You are having a natural conversation. The candidate just responded to your question.
+CRITICAL RULES:
+- NEVER repeat a question you already asked
+- NEVER ask the same thing twice in different words
+- Keep responses concise (under 50 words)
+- Be professional but warm
+- Ask only ONE question at a time
+- When wrapping up, say something like "Great, that covers what I wanted to discuss. Thanks for your time."
 
-CONVERSATION SO FAR:
-${conversationContext}
+You are having a real conversation. Respond naturally.`;
 
-CANDIDATE'S LATEST RESPONSE:
-"${message}"
-
-YOUR TASK:
-Respond like a real interviewer would. You have 3 options:
-
-OPTION A - FEEDBACK + FOLLOW-UP (if their answer needs clarification or was incomplete):
-Give brief feedback on what was good/missing, then ask ONE specific follow-up question.
-Example: "Good point about delta hedging. But you didn't mention gamma - how does gamma exposure affect your hedging frequency?"
-
-OPTION B - ACKNOWLEDGE + NEW TOPIC (if their answer was satisfactory):
-Briefly acknowledge their answer, then move to a completely new question.
-Example: "That's a solid explanation. Let's switch gears - walk me through how you'd value a company using DCF."
-
-OPTION C - WRAP UP (if you've covered enough after ${questionNumber}+ exchanges):
-Thank them and end the interview naturally.
-Example: "Great, I think I have a good sense of your background. Thanks for your time today. Do you have any questions for me?"
-
-RULES:
-- Be natural and conversational, NOT robotic
-- NEVER repeat the same question
-- NEVER just quote their words back ("you mentioned X...")
-- Give real feedback if they made errors
-- Keep responses under 40 words
-- Act like a real human interviewer
-
-Respond now:`;
+    // Build messages array - this is key!
+    // We send the FULL conversation history so GPT knows what was already asked
+    const apiMessages = [
+      { role: 'system', content: systemMessage },
+      ...messages, // All previous messages
+      { role: 'user', content: userMessage } // Current user response
+    ];
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -70,70 +54,49 @@ Respond now:`;
       },
       body: JSON.stringify({ 
         model: 'gpt-4o', 
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Respond as the interviewer:' }
-        ], 
-        max_tokens: 120, 
-        temperature: 0.8,
-        presence_penalty: 0.6,
-        frequency_penalty: 0.5
+        messages: apiMessages, 
+        max_tokens: 150, 
+        temperature: 0.85
       })
     });
 
     if (!response.ok) {
-      console.error('OpenAI error');
-      return NextResponse.json({ 
-        success: true, 
-        message: "Good. Now tell me - what's your biggest weakness and how do you manage it?", 
-        score: 55,
-        action: 'continue'
-      });
+      const err = await response.text();
+      console.error('OpenAI error:', err);
+      return NextResponse.json({ success: false, message: "API error", score: 50 });
     }
 
     const data = await response.json();
-    let aiMessage = data.choices[0]?.message?.content || "";
-    aiMessage = aiMessage.replace(/^(Interviewer:|Response:)/gi, '').trim();
+    const aiMessage = data.choices[0]?.message?.content?.trim() || "Tell me more about that.";
     
-    // Determine action based on response content
-    let action = 'continue';
-    if (aiMessage.toLowerCase().includes('thank') && aiMessage.toLowerCase().includes('time')) {
-      action = 'end';
-    } else if (aiMessage.includes('?')) {
-      action = 'question';
-    }
+    // Check if interview is ending
+    const isEnding = aiMessage.toLowerCase().includes('thank') && 
+                     (aiMessage.toLowerCase().includes('time') || aiMessage.toLowerCase().includes('interview'));
 
-    const score = calculateScore(message);
+    const score = scoreResponse(userMessage);
 
     return NextResponse.json({ 
       success: true, 
       message: aiMessage, 
       score,
-      action
+      isEnding
     });
   } catch (error) {
-    console.error('Chat API error:', error);
-    return NextResponse.json({ 
-      success: true, 
-      message: "Interesting. Now, tell me about a challenging project you worked on.", 
-      score: 50,
-      action: 'continue'
-    });
+    console.error('Error:', error);
+    return NextResponse.json({ success: false, message: "Error occurred", score: 50 });
   }
 }
 
-function calculateScore(response: string): number {
+function scoreResponse(text: string): number {
   let score = 55;
-  const words = response.split(/\s+/).filter(w => w.length > 0);
-  const wordCount = words.length;
+  const words = text.split(/\s+/).length;
   
-  if (wordCount >= 30 && wordCount <= 120) score += 15;
-  else if (wordCount >= 20) score += 8;
-  else if (wordCount < 10) score -= 15;
+  if (words >= 30 && words <= 150) score += 15;
+  else if (words >= 15) score += 5;
+  else if (words < 10) score -= 10;
   
-  if (/because|therefore|specifically|for example|first|second|the reason/i.test(response)) score += 10;
-  if (/i led|i managed|i built|i created|i achieved|resulted in/i.test(response)) score += 8;
-  if (/um|uh|like,|basically|you know|i guess/gi.test(response)) score -= 5;
+  if (/because|therefore|for example|specifically/i.test(text)) score += 10;
+  if (/um|uh|like,|basically/gi.test(text)) score -= 5;
   
   return Math.min(100, Math.max(20, score));
 }
