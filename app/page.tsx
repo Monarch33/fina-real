@@ -20,6 +20,7 @@ import {
 } from '@/lib/firebase';
 import { BRAINTEASERS_DB, BrainTeaser } from './data/brainteasers';
 import { DiceTrading, CardTrading, SequenceTest, MemoryTest } from './data/games';
+import { ArenaView } from './components/ArenaView';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // FINA V-REAL ULTIMATE — REFACTORED ARCHITECTURE
