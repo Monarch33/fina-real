@@ -10,17 +10,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'No API key' });
     }
 
-    console.log('Received messages:', JSON.stringify(messages, null, 2)); // Debug
+    // Construire un résumé explicite de la conversation
+    let conversationSummary = "CONVERSATION HISTORY:\n";
+    messages.forEach((m: any, i: number) => {
+      conversationSummary += `${i + 1}. ${m.role.toUpperCase()}: ${m.content}\n`;
+    });
 
-    const systemPrompt = `You are a senior interviewer at Jane Street conducting a ${mode} interview. You're having a natural conversation with a candidate.
+    const systemPrompt = `You are a finance interviewer at Jane Street. You are in the middle of an interview.
 
-IMPORTANT RULES:
-1. NEVER repeat a question you already asked - check the conversation history
-2. If the candidate's answer is good, move to a NEW topic
-3. If incomplete, ask them to clarify that specific point
-4. After 5-6 exchanges, wrap up naturally: "Thanks for your time, that covers what I wanted to discuss."
-5. Keep responses under 50 words
-6. Be natural, like a real human interviewer`;
+${conversationSummary}
+
+CRITICAL INSTRUCTIONS:
+- The candidate just gave their latest response (the last USER message above)
+- You must RESPOND to what they said - acknowledge it, evaluate it, give feedback
+- Then either:
+  A) Ask a FOLLOW-UP if their answer was incomplete
+  B) Move to a COMPLETELY NEW TOPIC if their answer was good
+  C) End the interview if you've covered 4-5 different topics
+
+ABSOLUTE RULES:
+- NEVER repeat any question you already asked (look at the history above!)
+- NEVER ask about something you already discussed
+- Keep your response under 50 words
+- Be conversational and natural
+- If ending, say "Thanks for your time, that concludes our interview."
+
+What is your next response as the interviewer?`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -30,12 +45,9 @@ IMPORTANT RULES:
       },
       body: JSON.stringify({ 
         model: 'gpt-4o', 
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages
-        ], 
+        messages: [{ role: 'user', content: systemPrompt }],
         max_tokens: 150, 
-        temperature: 0.85
+        temperature: 0.9
       })
     });
 
@@ -47,10 +59,10 @@ IMPORTANT RULES:
     const data = await response.json();
     const reply = data.choices[0]?.message?.content?.trim() || '';
     
-    console.log('AI reply:', reply); // Debug
-
-    const isEnding = reply.toLowerCase().includes('thank') && reply.toLowerCase().includes('time');
-    const score = Math.min(100, 50 + Math.floor(Math.random() * 30));
+    const isEnding = reply.toLowerCase().includes('concludes') || 
+                     (reply.toLowerCase().includes('thank') && reply.toLowerCase().includes('time'));
+    
+    const score = 50 + Math.floor(Math.random() * 35);
 
     return NextResponse.json({ success: true, reply, score, isEnding });
   } catch (error) {
