@@ -1,53 +1,42 @@
-import { stripe, PLANS } from '@/lib/stripe';
 import { NextRequest, NextResponse } from 'next/server';
+import Stripe from 'stripe';
 
-export async function POST(req: NextRequest) {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: '2025-05-28.basil',
+});
+
+const PRICES: Record<string, string> = {
+  starter: process.env.STRIPE_PRICE_STARTER!,
+  pro: process.env.STRIPE_PRICE_PRO!,
+  elite: process.env.STRIPE_PRICE_ELITE!,
+};
+
+export async function POST(request: NextRequest) {
   try {
-    const { planId, userEmail } = await req.json();
-
-    const plan = PLANS[planId as keyof typeof PLANS];
+    const { planId, userEmail } = await request.json();
     
-    if (!plan) {
-      return NextResponse.json(
-        { error: 'Invalid plan' },
-        { status: 400 }
-      );
+    const priceId = PRICES[planId];
+    if (!priceId) {
+      return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
+      mode: 'subscription',
+      customer_email: userEmail || undefined,
       line_items: [
         {
-          price_data: {
-            currency: 'eur',
-            product_data: {
-              name: `FINA ${plan.name}`,
-              description: 'AI-Powered Finance Interview Preparation',
-            },
-            unit_amount: plan.price,
-            recurring: {
-              interval: 'month',
-            },
-          },
+          price: priceId,
           quantity: 1,
         },
       ],
-      mode: 'subscription',
-      success_url: `${process.env.NEXT_PUBLIC_URL}/arena?success=true`,
-      cancel_url: `${process.env.NEXT_PUBLIC_URL}/?canceled=true`,
-      customer_email: userEmail,
-      metadata: {
-        planId: plan.id,
-      },
+      success_url: `${request.headers.get('origin')}/?success=true`,
+      cancel_url: `${request.headers.get('origin')}/?canceled=true`,
     });
 
     return NextResponse.json({ url: session.url });
-
-  } catch (error) {
-    console.error('Stripe Checkout Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to create checkout session' },
-      { status: 500 }
-    );
+  } catch (error: any) {
+    console.error('Stripe error:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
